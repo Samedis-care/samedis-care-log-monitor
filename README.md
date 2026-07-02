@@ -61,6 +61,16 @@ programs:
   requests-to-mail: "/opt/samedis/samedis-care-requests-to-mail/log"
 ```
 
+> **Windows-Pfade:** Backslash-Pfade **immer in einfache** Anführungszeichen setzen.
+> In doppelten Anführungszeichen ist `\` ein Escape-Zeichen, `\d`/`\s` usw. lösen
+> beim Start `unknown escape character` aus. Einfache Anführungszeichen nehmen den
+> Pfad wörtlich (Forward Slashes gehen ebenfalls):
+> ```yaml
+> programs:
+>   log-monitoring: '\\server\d$\samedis\log-monitoring\log'   # richtig
+>   staff-sync:     '//server/d$/samedis/staff-sync/log'       # ebenso ok
+> ```
+
 ### monitor
 ```yaml
 monitor:

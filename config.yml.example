@@ -6,10 +6,22 @@ logging:
 
 # Hash: Programmname -> Ordner, in dem dessen Logdateien (Logfile_dd.MM.yyyy.log) liegen.
 # Der Programmname erscheint so im Bericht.
+#
+# WICHTIG (Windows-Pfade): Backslash-Pfade IMMER in EINFACHE Anführungszeichen setzen.
+# In doppelten Anführungszeichen ist "\" ein Escape-Zeichen -> "\d", "\s" usw. führen
+# zu "unknown escape character". Einfache Anführungszeichen nehmen den Pfad wörtlich.
+#   richtig:  log-monitoring: '\\server\d$\samedis\log-monitoring\log'
+#   ebenso ok: log-monitoring: '//server/d$/samedis/log-monitoring/log'
+#   falsch:   log-monitoring: "\\server\d$\samedis\log-monitoring\log"
 programs:
-  staff-sync: "/opt/samedis/samedis-care-staff-sync/log"
-  external-sync: "/opt/samedis/samedis-care-external-sync/log"
-  sync-trainings: "/opt/samedis/samedis-care-sync-trainings/log"
+  # Windows (UNC), einfache Anführungszeichen:
+  staff-sync:     '\\SERVER\d$\samedis\staff-sync\log'
+  external-sync:  '\\SERVER\d$\samedis\external-sync\log'
+  sync-trainings: '\\SERVER\d$\samedis\sync-trainings\log'
+  # lokaler Windows-Pfad geht ebenfalls, z. B.:
+  # staff-sync: 'D:\samedis\staff-sync\log'
+  # Linux (ohne Backslash sind auch doppelte Anführungszeichen unproblematisch):
+  # staff-sync: "/opt/samedis/samedis-care-staff-sync/log"
 
 monitor:
   # Log-Level-Token, die als Problem gelten (Vergleich case-insensitive auf dem Level-Feld).
