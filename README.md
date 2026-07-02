@@ -1,0 +1,114 @@
+# Samedis Care Log Monitor
+
+Liest die Logdateien der übrigen Samedis-Client-Tools aus, sucht nach `ERROR`- und
+`WARN`-Einträgen und verschickt einmal täglich eine zusammenfassende E-Mail an ein
+Postfach – inklusive einer Detail-Logdatei im Anhang. Gibt es keine Auffälligkeiten,
+wird eine „Alles OK"-Mail versendet, damit man weiß, dass der Monitor selbst lief.
+
+Alle Samedis-Tools schreiben ihre Logs im identischen Format
+`yyyy-MM-dd HH:mm:ss <LEVEL> <message>` nach `log/Logfile_dd.MM.yyyy.log` (eine
+Datei pro Tag). Der Monitor nutzt genau dieses Format.
+
+## Features
+- Konfigurierbare Programm→Log-Ordner-Zuordnung (Hash in `config.yml`)
+- Wertet pro Programm die **neueste** Logdatei aus (alle Läufe des Tages)
+- Erkennt Probleme am **Level-Token** (nicht per Textsuche) – `WARN WARNING: …`
+  wird also einmal gezählt, und `INFO/DEBUG`-Zeilen mit dem Wort „ERROR"/„WARNING"
+  im Text lösen keinen Fehlalarm aus
+- Mehrzeilige Meldungen (Stacktraces/JSON/HTTP-Header) werden korrekt an ihre
+  Ausgangsmeldung angehängt
+- Meldet ausgefallene Jobs: ist die neueste Logdatei nicht von heute (oder fehlt der
+  Ordner ganz), wird das als Warnung im Bericht aufgeführt
+- E-Mail-Versand via SMTP, Microsoft Graph oder Gmail (Service Account)
+- Detailbericht als `text/plain`-Anhang; zusätzlich lokal unter `log/` abgelegt
+
+## Installation
+
+### 1) Konfigurieren
+```bash
+cp config.yml.example config.yml
+# config.yml anpassen (Programm-Pfade, Empfänger, Mail-Provider)
+```
+
+### 2) Ausführen (dev)
+```bash
+dotnet run
+# optional: abweichende Config angeben
+dotnet run -- /pfad/zu/config.yml
+```
+
+### 3) Release-Build (Beispiel Windows)
+```bash
+dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true
+```
+
+## Konfiguration (config.yml)
+
+### logging
+Log-Einstellungen des Monitors selbst (schreibt nach `log/Logfile_<Datum>.log`).
+```yaml
+logging:
+  level: 1   # 0: off  1: on  2: debug
+  mode: 3    # 0: none 1: console 2: logfile 3: console & logfile
+```
+
+### programs
+Hash: Programmname → Ordner mit dessen Logdateien. Der Name erscheint so im Bericht.
+```yaml
+programs:
+  staff-sync: "/opt/samedis/samedis-care-staff-sync/log"
+  external-sync: "/opt/samedis/samedis-care-external-sync/log"
+  requests-to-mail: "/opt/samedis/samedis-care-requests-to-mail/log"
+```
+
+### monitor
+```yaml
+monitor:
+  levels: ["ERROR", "WARN"]      # Level-Token, die als Problem zählen (case-insensitive)
+  warn_if_no_run_today: true     # veraltete/fehlende Logs als Warnung melden
+  max_entries_per_program: 500   # Kappung der Detailmenge (0 = unbegrenzt)
+```
+
+### mail
+Identisch aufgebaut wie in `samedis-care-requests-to-mail`. Platzhalter im `subject`:
+`{{Date}}`, `{{Status}}`, `{{ErrorCount}}`, `{{WarningCount}}`.
+```yaml
+mail:
+  enabled: true
+  provider: "smtp"   # smtp | graph | gmail
+  from: "log-monitor@samedis.care"
+  subject: "Samedis Log-Monitor {{Date}} - {{Status}} ({{ErrorCount}} Fehler, {{WarningCount}} Warnungen)"
+  recipients:
+    - "ops@samedis.care"
+  smtp:
+    server: "localhost"
+    port: 587
+    username: ""
+    password: ""
+    use_ssl: false
+    use_start_tls: true
+    ignore_certificate_errors: false
+  graph:
+    tenant_id: ""
+    client_id: ""
+    client_secret: ""
+    sender_user_principal_name: ""
+  gmail:
+    service_account_json_path: ""
+    impersonated_user: ""
+```
+
+## Einmal täglich ausführen (Scheduling)
+
+Das Programm läuft einmal durch und beendet sich – die Taktung erfolgt extern.
+
+**Linux (cron), täglich 07:00:**
+```cron
+0 7 * * * cd /opt/samedis/samedis-care-log-monitor && /usr/bin/dotnet SamedisCareLogMonitor.dll >> /var/log/samedis-log-monitor.cron.log 2>&1
+```
+
+**Windows (Aufgabenplanung):** täglichen Trigger anlegen, der die veröffentlichte
+`SamedisCareLogMonitor.exe` im Programmverzeichnis startet.
+
+> Hinweis: Der Monitor sollte **nach** den überwachten Tools laufen, damit die
+> jeweils aktuelle Tageslogdatei bereits existiert.

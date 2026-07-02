@@ -1,0 +1,49 @@
+logging:
+  # 0: off 1: on 2: debug
+  level: 1
+  # 0: none 1: console 2: logfile 3: console & logfile
+  mode: 3
+
+# Hash: Programmname -> Ordner, in dem dessen Logdateien (Logfile_dd.MM.yyyy.log) liegen.
+# Der Programmname erscheint so im Bericht.
+programs:
+  staff-sync: "/opt/samedis/samedis-care-staff-sync/log"
+  external-sync: "/opt/samedis/samedis-care-external-sync/log"
+  sync-trainings: "/opt/samedis/samedis-care-sync-trainings/log"
+
+monitor:
+  # Log-Level-Token, die als Problem gelten (Vergleich case-insensitive auf dem Level-Feld).
+  # In allen Tools kommen faktisch nur ERROR und WARN als Token vor.
+  levels:
+    - "ERROR"
+    - "WARN"
+  # true: wenn die neueste Logdatei eines Programms nicht von heute ist,
+  # wird das als Warnung ("kein aktueller Lauf") gemeldet.
+  warn_if_no_run_today: true
+  # Maximale Anzahl Problem-Einträge pro Programm im Detail-Anhang (0 = unbegrenzt).
+  # Eine Kürzung wird im Bericht vermerkt.
+  max_entries_per_program: 500
+
+mail:
+  enabled: true
+  provider: "smtp" # smtp | graph | gmail
+  from: "log-monitor@samedis.care"
+  subject: "Samedis Log-Monitor {{Date}} - {{Status}} ({{ErrorCount}} Fehler, {{WarningCount}} Warnungen)"
+  recipients:
+    - "ops@samedis.care"
+  smtp:
+    server: "localhost"
+    port: 587
+    username: ""
+    password: ""
+    use_ssl: false
+    use_start_tls: true
+    ignore_certificate_errors: false
+  graph:
+    tenant_id: "your-tenant-id"
+    client_id: "your-app-client-id"
+    client_secret: "your-app-client-secret"
+    sender_user_principal_name: "sender@yourdomain.com"
+  gmail:
+    service_account_json_path: "/path/to/service-account.json"
+    impersonated_user: "sender@yourdomain.com"
