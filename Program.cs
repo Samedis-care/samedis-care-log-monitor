@@ -17,7 +17,25 @@ internal class Program
     if (!File.Exists(ymlFilePath))
       helper.MessageAndExit($"The file {ymlFilePath} does not exists. Stopping log monitor.");
 
-    var config = AppConfig.LoadFromYaml(ymlFilePath);
+    AppConfig config;
+    try
+    {
+      config = AppConfig.LoadFromYaml(ymlFilePath);
+    }
+    catch (YamlDotNet.Core.YamlException ex)
+    {
+      var where = ex.Start.Line > 0 ? $" (Zeile {ex.Start.Line}, Spalte {ex.Start.Column})" : "";
+      var hint = ex.Message.Contains("escape", StringComparison.OrdinalIgnoreCase)
+        ? " Hinweis: Windows-Pfade mit Backslash in EINFACHE Anführungszeichen setzen, z. B. 'D:\\samedis\\...\\log' bzw. '\\\\server\\d$\\...\\log' – in doppelten Anführungszeichen ist \"\\\" ein Escape-Zeichen."
+        : "";
+      helper.MessageAndExit($"Konfiguration {ymlFilePath} konnte nicht gelesen werden{where}: {ex.Message}.{hint}");
+      return;
+    }
+    catch (Exception ex)
+    {
+      helper.MessageAndExit($"Konfiguration {ymlFilePath} konnte nicht gelesen werden: {ex.Message}");
+      return;
+    }
 
     helper.LogLevel = config.Logging.Level;
     helper.LogMode = config.Logging.Mode;
