@@ -131,6 +131,35 @@ namespace SamedisCareLogMonitor
       return sb.ToString();
     }
 
+    /// <summary>
+    /// Concise plain-text body used as the multipart/alternative text part, so
+    /// clients that do not render HTML still show a readable summary. The full
+    /// details remain in the attachment.
+    /// </summary>
+    public static string BuildTextBody(Report report)
+    {
+      var sb = new StringBuilder();
+      sb.AppendLine($"Samedis Log-Monitor – Status: {report.Status}");
+      sb.AppendLine($"Erstellt: {report.GeneratedAt:yyyy-MM-dd HH:mm:ss}");
+      sb.AppendLine($"Programme geprüft: {report.Programs.Count} | Fehler gesamt: {report.TotalErrors} | Warnungen gesamt: {report.TotalWarnings}");
+      sb.AppendLine();
+
+      if (!report.HasIssues)
+        sb.AppendLine("Alles OK – keine Fehler oder Warnungen in den geprüften Logs.");
+
+      foreach (var p in report.Programs)
+      {
+        var flags = p.Stale ? " [kein aktueller Lauf]" : "";
+        sb.AppendLine($"- {p.Name}: {p.ErrorCount} ERROR, {p.WarningCount} WARN{flags}");
+        foreach (var note in p.Notes)
+          sb.AppendLine($"    Hinweis: {note}");
+      }
+
+      sb.AppendLine();
+      sb.AppendLine("Details siehe angehängte Logdatei.");
+      return sb.ToString();
+    }
+
     private static string HtmlEscape(string input) => System.Net.WebUtility.HtmlEncode(input);
   }
 }

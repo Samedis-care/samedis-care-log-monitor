@@ -59,6 +59,7 @@ internal class Program
     var report = ReportBuilder.Build(results, DateTime.Now);
     var subject = ReportBuilder.BuildSubject(config.Mail.Subject, report);
     var htmlBody = ReportBuilder.BuildHtmlBody(report);
+    var textBody = ReportBuilder.BuildTextBody(report);
     var detailText = ReportBuilder.BuildDetailText(report);
 
     helper.Message(
@@ -81,7 +82,7 @@ internal class Program
         "text/plain; charset=utf-8");
 
       var mailer = new Mailer(config, helper);
-      var sent = await mailer.SendReportEmailAsync(subject, htmlBody, attachment);
+      var sent = await mailer.SendReportEmailAsync(subject, htmlBody, textBody, attachment);
       if (!sent)
         helper.Message("Report mail was not sent (see previous messages).", 1, "WARN");
     }

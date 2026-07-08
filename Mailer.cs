@@ -24,7 +24,7 @@ namespace SamedisCareLogMonitor
     }
 
     public record MailAttachment(string FileName, byte[] Content, string ContentType);
-    private record MailMessageData(string From, List<string> To, string Subject, string Body, bool IsHtml, List<MailAttachment>? Attachments = null);
+    private record MailMessageData(string From, List<string> To, string Subject, string HtmlBody, string? TextBody, List<MailAttachment>? Attachments = null);
 
     private List<string> BuildRecipients()
     {
@@ -35,7 +35,7 @@ namespace SamedisCareLogMonitor
         .ToList();
     }
 
-    public async Task<bool> SendReportEmailAsync(string subject, string htmlBody, MailAttachment? attachment = null)
+    public async Task<bool> SendReportEmailAsync(string subject, string htmlBody, string? textBody = null, MailAttachment? attachment = null)
     {
       if (!_config.Mail.Enabled)
         return false;
@@ -49,7 +49,7 @@ namespace SamedisCareLogMonitor
       }
 
       var attachments = attachment != null ? new List<MailAttachment> { attachment } : null;
-      var message = new MailMessageData(from, recipients, subject, htmlBody, true, attachments);
+      var message = new MailMessageData(from, recipients, subject, htmlBody, textBody, attachments);
       return await SendAsync(message, "log monitor report");
     }
 
@@ -135,8 +135,8 @@ namespace SamedisCareLogMonitor
         Subject = message.Subject,
         Body = new ItemBody
         {
-          ContentType = message.IsHtml ? BodyType.Html : BodyType.Text,
-          Content = message.Body,
+          ContentType = BodyType.Html,
+          Content = message.HtmlBody,
         },
         ToRecipients = message.To
           .Select(to => new Recipient { EmailAddress = new EmailAddress { Address = to } })
@@ -211,11 +211,14 @@ namespace SamedisCareLogMonitor
 
       mimeMessage.Subject = message.Subject;
 
-      var bodyBuilder = new BodyBuilder();
-      if (message.IsHtml)
-        bodyBuilder.HtmlBody = message.Body;
-      else
-        bodyBuilder.TextBody = message.Body;
+      var bodyBuilder = new BodyBuilder
+      {
+        HtmlBody = message.HtmlBody
+      };
+      // Provide a plain-text alternative so clients that do not render the HTML
+      // part still show a readable body (multipart/alternative).
+      if (!string.IsNullOrWhiteSpace(message.TextBody))
+        bodyBuilder.TextBody = message.TextBody;
 
       if (message.Attachments != null)
       {
