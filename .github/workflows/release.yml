@@ -1,0 +1,36 @@
+name: Release
+on:
+  push:
+    tags: [ 'v*' ]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT: SamedisCareLogMonitor.csproj
+      APP_NAME: SamedisCareLogMonitor
+      EXE_NAME: SamedisCareLogMonitor
+      RID: win-x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish (single-file, self-contained)
+        run: |
+          dotnet publish "$PROJECT" -c Release -r "$RID" \
+            --self-contained true \
+            /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish
+      - name: Zip
+        run: cd publish && zip -r "../${APP_NAME}-${GITHUB_REF_NAME}-${RID}.zip" . && cd ..
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${APP_NAME} ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            "${APP_NAME}-${GITHUB_REF_NAME}-${RID}.zip" \
+            "publish/${EXE_NAME}.exe"
