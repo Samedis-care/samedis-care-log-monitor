@@ -5,21 +5,24 @@
 		<RootNamespace>SamedisCareLogMonitor</RootNamespace>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<!--
-		<PublishSingleFile>true</PublishSingleFile>
-		<SelfContained>true</SelfContained>
-		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
-		<RuntimeIdentifier>linux-x64</RuntimeIdentifier>
-		<RuntimeIdentifier>osx-x64</RuntimeIdentifier>
-		<DebugType>embedded</DebugType>
-		-->
 	</PropertyGroup>
+
+	<!-- The mail transports, the log format and the configuration reader now come from the
+	     shared packages. MailKit, Graph, Gmail and Azure.Identity arrive through
+	     SamedisCare.Mail, so they are no longer listed here. -->
 	<ItemGroup>
-		<PackageReference Include="Azure.Identity" Version="1.17.1" />
-		<PackageReference Include="Google.Apis.Auth" Version="1.73.0" />
-		<PackageReference Include="Google.Apis.Gmail.v1" Version="1.73.0.3987" />
-		<PackageReference Include="MailKit" Version="4.17.0" />
-		<PackageReference Include="Microsoft.Graph" Version="5.101.0" />
-		<PackageReference Include="YamlDotNet" Version="13.7.1" />
+		<PackageReference Include="SamedisCare.Mail" Version="0.3.0-rc.21" />
+		<PackageReference Include="SamedisCare.Helper" Version="0.3.0-rc.21" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="SamedisCareLogMonitor.Tests" />
+	</ItemGroup>
+
+	<!-- The project file sits at the repository root, so the default glob would compile the
+	     test project's sources into this one — where xunit is not referenced. -->
+	<ItemGroup>
+		<Compile Remove="tests/**" />
+		<None Remove="tests/**" />
 	</ItemGroup>
 </Project>

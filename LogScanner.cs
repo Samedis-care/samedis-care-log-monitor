@@ -1,3 +1,4 @@
+using SamedisCare.Helper.Logging;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -41,24 +42,13 @@ namespace SamedisCareLogMonitor
 
   public class LogScanner
   {
-    // Matches a real log entry start: "yyyy-MM-dd HH:mm:ss <LEVEL> <message>".
-    // Lines that do not match are treated as continuation of the previous entry.
-    private static readonly Regex LineRegex = new(
-      @"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s?(.*)$",
-      RegexOptions.Compiled);
-
-    private static readonly string[] FileNameDateFormats =
-    {
-      "dd.MM.yyyy", "d.M.yyyy", "MM.dd.yyyy", "yyyy-MM-dd", "M/d/yyyy", "dd-MM-yyyy"
-    };
-
-    private readonly Helper _helper;
+    private readonly ISyncLog log;
     private readonly MonitorConfig _config;
     private readonly HashSet<string> _levels;
 
-    public LogScanner(Helper helper, MonitorConfig config)
+    public LogScanner(ISyncLog syncLog, MonitorConfig config)
     {
-      _helper = helper;
+      log = syncLog;
       _config = config;
       _levels = new HashSet<string>(
         (config.Levels ?? new List<string>()).Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()),
@@ -78,7 +68,7 @@ namespace SamedisCareLogMonitor
       {
         result.Stale = true;
         result.Notes.Add($"Log-Ordner nicht gefunden: '{folder}'.");
-        _helper.Message($"[{programName}] Log-Ordner nicht gefunden: '{folder}'.", 1, "WARN");
+        log.Warn($"[{programName}] Log-Ordner nicht gefunden: '{folder}'.");
         return result;
       }
 
@@ -91,7 +81,7 @@ namespace SamedisCareLogMonitor
       {
         result.Stale = true;
         result.Notes.Add($"Keine Logdatei (*.log) in '{folder}' gefunden.");
-        _helper.Message($"[{programName}] Keine Logdatei in '{folder}' gefunden.", 1, "WARN");
+        log.Warn($"[{programName}] Keine Logdatei in '{folder}' gefunden.");
         return result;
       }
 
@@ -102,14 +92,12 @@ namespace SamedisCareLogMonitor
       {
         result.Stale = true;
         result.Notes.Add($"Kein aktueller Lauf – neueste Logdatei ist vom {result.LogDate.Value:yyyy-MM-dd}.");
-        _helper.Message($"[{programName}] Kein aktueller Lauf (Logdatei vom {result.LogDate.Value:yyyy-MM-dd}).", 1, "WARN");
+        log.Warn($"[{programName}] Kein aktueller Lauf (Logdatei vom {result.LogDate.Value:yyyy-MM-dd}).");
       }
 
       ParseFile(newest.FullName, result);
 
-      _helper.Message(
-        $"[{programName}] {Path.GetFileName(newest.FullName)}: {result.ErrorCount} ERROR, {result.WarningCount} WARN.",
-        1);
+      log.Info($"[{programName}] {Path.GetFileName(newest.FullName)}: {result.ErrorCount} ERROR, {result.WarningCount} WARN.");
 
       return result;
     }
@@ -128,14 +116,17 @@ namespace SamedisCareLogMonitor
       catch (Exception ex)
       {
         result.Notes.Add($"Logdatei konnte nicht gelesen werden: {ex.Message}");
-        _helper.Message($"[{result.Name}] Logdatei konnte nicht gelesen werden: {ex.Message}", 1, "ERROR");
+        log.Error($"[{result.Name}] Logdatei konnte nicht gelesen werden: {ex.Message}");
         return;
       }
 
       foreach (var line in lines)
       {
-        var match = LineRegex.Match(line);
-        if (!match.Success)
+        // Through LogFormat, so the shape of a line lives in one place with the writer
+        // that produces it. Getting this wrong is silent: a line that does not parse is not
+        // an error here, it is the continuation of the entry above -- a format that had
+        // drifted would fold every ERROR into the text before it and report nothing at all.
+        if (!LogFormat.TryParse(line, out var entry))
         {
           // Continuation of the previous problem entry (stack trace / JSON / header).
           if (current != null)
@@ -144,7 +135,7 @@ namespace SamedisCareLogMonitor
         }
 
         // A new proper log entry begins here; it is not a continuation anymore.
-        var level = match.Groups[2].Value;
+        var level = entry.Level;
         if (!_levels.Contains(level))
         {
           current = null;
@@ -160,9 +151,9 @@ namespace SamedisCareLogMonitor
 
         current = new ProblemEntry
         {
-          Timestamp = match.Groups[1].Value,
+          Timestamp = entry.At.ToString(LogFormat.TimeFormat),
           Level = level,
-          Message = match.Groups[3].Value
+          Message = entry.Message
         };
         result.Problems.Add(current);
       }
@@ -173,18 +164,11 @@ namespace SamedisCareLogMonitor
 
     private static DateTime? ResolveLogDate(FileInfo file)
     {
-      // Expected pattern: Logfile_dd.MM.yyyy.log — extract the date part.
-      var name = Path.GetFileNameWithoutExtension(file.Name);
-      var underscore = name.LastIndexOf('_');
-      if (underscore >= 0 && underscore < name.Length - 1)
-      {
-        var datePart = name[(underscore + 1)..];
-        foreach (var fmt in FileNameDateFormats)
-        {
-          if (DateTime.TryParseExact(datePart, fmt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
-            return parsed;
-        }
-      }
+      // The six candidate formats that used to stand here were tolerance for a name the
+      // tools built with ToShortDateString(), which follows the machine's culture. They all
+      // write LogFormat.FileName now, so one is enough.
+      if (LogFormat.TryParseFileName(file.Name, out var parsed))
+        return parsed;
 
       // Fallback: last write time.
       return file.LastWriteTime.Date;
