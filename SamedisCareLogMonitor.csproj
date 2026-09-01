@@ -11,8 +11,8 @@
 	     shared packages. MailKit, Graph, Gmail and Azure.Identity arrive through
 	     SamedisCare.Mail, so they are no longer listed here. -->
 	<ItemGroup>
-		<PackageReference Include="SamedisCare.Mail" Version="0.3.0-rc.21" />
-		<PackageReference Include="SamedisCare.Helper" Version="0.3.0-rc.21" />
+		<PackageReference Include="SamedisCare.Mail" Version="0.3.0-rc.23" />
+		<PackageReference Include="SamedisCare.Helper" Version="0.3.0-rc.23" />
 	</ItemGroup>
 
 	<ItemGroup>
