@@ -1,3 +1,4 @@
+using SamedisCare.Mail;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -14,7 +15,7 @@ namespace SamedisCareLogMonitor
     public Dictionary<string, string> Programs { get; set; } = new();
 
     public MonitorConfig Monitor { get; set; } = new MonitorConfig();
-    public MailConfig Mail { get; set; } = new MailConfig();
+    public MailSettings Mail { get; set; } = new();
 
     public static AppConfig LoadFromYaml(string filePath)
     {
@@ -57,42 +58,8 @@ namespace SamedisCareLogMonitor
     public int MaxEntriesPerProgram { get; set; } = 500;
   }
 
-  public class MailConfig
-  {
-    public bool Enabled { get; set; } = false;
-    public string? Provider { get; set; } = "smtp";
-    public string? From { get; set; }
-    public List<string> Recipients { get; set; } = new();
-    public string? Subject { get; set; }
-    public SmtpConfig Smtp { get; set; } = new SmtpConfig();
-    public GraphMailConfig Graph { get; set; } = new GraphMailConfig();
-    public GmailConfig Gmail { get; set; } = new GmailConfig();
-  }
-
-  public class SmtpConfig
-  {
-    public string? Server { get; set; }
-    public int Port { get; set; } = 587;
-    public string? Username { get; set; }
-    public string? Password { get; set; }
-    public bool UseSsl { get; set; } = false;
-    public bool UseStartTls { get; set; } = true;
-    public bool IgnoreCertificateErrors { get; set; } = false;
-    [YamlMember(Alias = "use_starttls")]
-    public bool? UseStartTlsLegacy { get; set; }
-  }
-
-  public class GraphMailConfig
-  {
-    public string? TenantId { get; set; }
-    public string? ClientId { get; set; }
-    public string? ClientSecret { get; set; }
-    public string? SenderUserPrincipalName { get; set; }
-  }
-
-  public class GmailConfig
-  {
-    public string? ServiceAccountJsonPath { get; set; }
-    public string? ImpersonatedUser { get; set; }
-  }
+  // MailConfig, SmtpConfig, GraphMailConfig und GmailConfig standen hier -- Eigenschaft
+  // fuer Eigenschaft dieselben wie in samedis-care-requests-to-mail. Sie kommen jetzt aus
+  // SamedisCare.Mail, wo die Transporte sie lesen. Ein bestehendes config.yml passt
+  // unveraendert weiter.
 }

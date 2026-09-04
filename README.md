@@ -9,6 +9,19 @@ Alle Samedis-Tools schreiben ihre Logs im identischen Format
 `yyyy-MM-dd HH:mm:ss <LEVEL> <message>` nach `log/Logfile_dd.MM.yyyy.log` (eine
 Datei pro Tag). Der Monitor nutzt genau dieses Format.
 
+## Shared libraries
+
+This tool no longer carries its own copy of the API layer. It consumes:
+
+| Package | What comes from it |
+| --- | --- |
+| `SamedisCare.Helper` | Logging and — the point of this tool — `LogFormat`, the shape of a log line |
+| `SamedisCare.Mail` | Sending over SMTP, Microsoft Graph or the Gmail API |
+
+The packages live in [samedis-care-dotnet](https://github.com/Samedis-care/samedis-care-dotnet).
+Their versions are pinned in the `.csproj`; a local folder feed for trying an unpublished
+change is described in that repository's README.
+
 ## Features
 - Konfigurierbare Programm→Log-Ordner-Zuordnung (Hash in `config.yml`)
 - Wertet pro Programm die **neueste** Logdatei aus (alle Läufe des Tages)
@@ -21,6 +34,23 @@ Datei pro Tag). Der Monitor nutzt genau dieses Format.
   Ordner ganz), wird das als Warnung im Bericht aufgeführt
 - E-Mail-Versand via SMTP, Microsoft Graph oder Gmail (Service Account)
 - Detailbericht als `text/plain`-Anhang; zusätzlich lokal unter `log/` abgelegt
+
+## Tests
+
+```bash
+dotnet test -c Release
+```
+
+Die Tests schreiben mit dem echten `FileSyncLog` und lesen mit dem echten Scanner. Das ist die
+Nahtstelle, auf der dieses Programm sitzt: es liest ein Format, das eine andere Anwendung
+schreibt. Läuft das Format auseinander, meldet der Monitor **keinen Fehler** — eine Zeile, die
+er nicht erkennt, gilt ihm als Fortsetzung des Eintrags darüber, und jedes `ERROR` verschwindet
+im Text davor. Deshalb liegt das Format in `SamedisCare.Helper.Logging.LogFormat`, und beide
+Seiten gehen darüber.
+
+Aus demselben Grund führt der Scanner nur noch **ein** Datumsformat für Logdateinamen: die
+sechs früheren waren Toleranz gegen einen Namen, den die Tools mit `ToShortDateString()`
+bauten, also kulturabhängig.
 
 ## Installation
 
