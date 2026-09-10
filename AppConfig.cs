@@ -1,6 +1,5 @@
 using SamedisCare.Mail;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using SamedisCare.Helper.Config;
 
 namespace SamedisCareLogMonitor
 {
@@ -17,18 +16,12 @@ namespace SamedisCareLogMonitor
     public MonitorConfig Monitor { get; set; } = new MonitorConfig();
     public MailSettings Mail { get; set; } = new();
 
+    /// <summary>
+    /// Reads config.yml. Unknown keys are tolerated, as they were before, so a key left over
+    /// from an older version does not fail the run.
+    /// </summary>
     public static AppConfig LoadFromYaml(string filePath)
-    {
-      using var input = File.OpenText(filePath);
-      var deserializerBuilder = new DeserializerBuilder()
-        .WithNamingConvention(UnderscoredNamingConvention.Instance)
-        .IgnoreUnmatchedProperties();
-      var deserializer = deserializerBuilder.Build();
-      var result = deserializer.Deserialize<AppConfig>(input) ?? new AppConfig();
-      if (result.Mail?.Smtp?.UseStartTlsLegacy is bool legacyValue)
-        result.Mail.Smtp.UseStartTls = legacyValue;
-      return result;
-    }
+      => ConfigStore.Load<AppConfig>(filePath, ignoreUnmatchedProperties: true);
   }
 
   public class LoggingConfig
@@ -58,8 +51,9 @@ namespace SamedisCareLogMonitor
     public int MaxEntriesPerProgram { get; set; } = 500;
   }
 
-  // MailConfig, SmtpConfig, GraphMailConfig und GmailConfig standen hier -- Eigenschaft
-  // fuer Eigenschaft dieselben wie in samedis-care-requests-to-mail. Sie kommen jetzt aus
-  // SamedisCare.Mail, wo die Transporte sie lesen. Ein bestehendes config.yml passt
-  // unveraendert weiter.
+  // MailConfig, SmtpConfig, GraphMailConfig and GmailConfig used to live here -- property for
+  // property the same ones as in samedis-care-requests-to-mail. They now come from
+  // SamedisCare.Mail, where the transports read them. An existing config.yml keeps working:
+  // the keys this tool has ever documented are use_ssl / use_start_tls, and those map onto
+  // the package properties unchanged.
 }
