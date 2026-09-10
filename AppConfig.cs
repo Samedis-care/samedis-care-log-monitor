@@ -21,7 +21,40 @@ namespace SamedisCareLogMonitor
     /// from an older version does not fail the run.
     /// </summary>
     public static AppConfig LoadFromYaml(string filePath)
-      => ConfigStore.Load<AppConfig>(filePath, ignoreUnmatchedProperties: true);
+      => Normalize(ConfigStore.Load<AppConfig>(filePath, ignoreUnmatchedProperties: true));
+
+    /// <summary>
+    /// Makes an empty section mean "defaults", the same as a missing one.
+    /// </summary>
+    /// <remarks>
+    /// A section header with nothing under it -- the normal intermediate state while setting
+    /// the tool up -- is not the same as an absent one to YamlDotNet: it sets the property, and
+    /// the value it sets is null, overwriting the initialiser above. Measured on YamlDotNet
+    /// 16.3.0: "logging:" alone gives Logging == null, while omitting the key leaves the
+    /// initialiser intact.
+    ///
+    /// Every consumer would otherwise need its own null check. Program.Main is not inside a
+    /// try, so the alternative is a bare NullReferenceException and exit code 134 with nothing
+    /// in the log naming the section at fault -- a poor neighbour to the care taken over YAML
+    /// syntax errors, which report line, column and a hint about Windows paths.
+    ///
+    /// This is not a hidden default: a missing section already means defaults, and the whole
+    /// point here is that the two spellings stop behaving differently.
+    /// </remarks>
+    private static AppConfig Normalize(AppConfig config)
+    {
+      config.Logging ??= new LoggingConfig();
+      config.Monitor ??= new MonitorConfig();
+      config.Programs ??= new();
+      config.Mail ??= new();
+
+      // The transports come from SamedisCare.Mail and carry the same kind of initialiser.
+      config.Mail.Smtp ??= new();
+      config.Mail.Graph ??= new();
+      config.Mail.Gmail ??= new();
+
+      return config;
+    }
   }
 
   public class LoggingConfig

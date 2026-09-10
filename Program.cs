@@ -124,8 +124,12 @@ internal class Program
   /// </remarks>
   internal static void WarnIfSmtpCredentialsWouldGoOutInClear(MailSettings mail, ISyncLog log)
   {
-    var smtp = mail.Smtp;
+    // AppConfig.Normalize guarantees a non-null Smtp, but this must not be the thing that
+    // takes the run down if that ever stops being true: Main has no try around it, and a
+    // half-filled mail block is exactly the state this warning exists to talk about. The
+    // provider check stays first so a graph/gmail setup never looks at Smtp at all.
     if ((mail.Provider ?? "smtp").Trim().ToLowerInvariant() != "smtp") return;
+    if (mail.Smtp is not { } smtp) return;
     if (string.IsNullOrWhiteSpace(smtp.Username)) return;
     if (smtp.UseSsl || smtp.UseStartTls) return;
 
