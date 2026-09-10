@@ -137,10 +137,10 @@ mail:
     service_account_json_path: ""
     impersonated_user: ""
 ```
-Zur Transportverschluesselung gibt es **keinen impliziten Default**: sind weder `use_ssl`
-noch `use_start_tls` gesetzt, verbindet sich der Mailer unverschluesselt und schickt
-`username`/`password` im Klartext. Auf Port 587 gehoert `use_start_tls: true`, auf Port 465
-`use_ssl: true`.
+Zur Transportverschlüsselung gibt es **keinen impliziten Default**: sind weder `use_ssl`
+noch `use_start_tls` gesetzt, verbindet sich der Mailer unverschlüsselt und schickt
+`username`/`password` im Klartext. Auf Port 587 gehört `use_start_tls: true`, auf Port 465
+`use_ssl: true`. Der Lauf warnt in diesem Fall auch im Log.
 
 ## Einmal täglich ausführen (Scheduling)
 

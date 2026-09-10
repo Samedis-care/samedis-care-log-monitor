@@ -53,7 +53,13 @@ namespace SamedisCareLogMonitor
 
   // MailConfig, SmtpConfig, GraphMailConfig and GmailConfig used to live here -- property for
   // property the same ones as in samedis-care-requests-to-mail. They now come from
-  // SamedisCare.Mail, where the transports read them. An existing config.yml keeps working:
-  // the keys this tool has ever documented are use_ssl / use_start_tls, and those map onto
-  // the package properties unchanged.
+  // SamedisCare.Mail, where the transports read them. An existing config.yml keeps working
+  // for every key this tool has ever documented -- use_ssl / use_start_tls map onto the
+  // package properties unchanged.
+  //
+  // The one thing that does not survive: the undocumented use_starttls spelling, which the
+  // released main accepted through a [YamlMember] alias. Under UnderscoredNamingConvention
+  // the package property maps to use_start_tls_legacy, and ignoreUnmatchedProperties eats the
+  // old name, so such a key now loads as "unset". It has to be renamed to use_start_tls.
+  // WarnIfSmtpCredentialsWouldGoOutInClear in Program.cs is what makes that audible.
 }

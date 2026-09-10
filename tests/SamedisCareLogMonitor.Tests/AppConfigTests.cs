@@ -1,4 +1,5 @@
 using FluentAssertions;
+using SamedisCare.Helper.Logging;
 using SamedisCareLogMonitor;
 using Xunit;
 
@@ -65,4 +66,81 @@ public class AppConfigTests : IDisposable
     public void A_missing_file_is_reported_as_such()
         => ((Action)(() => AppConfig.LoadFromYaml(Path.Combine(_folder, "not-there.yml"))))
             .Should().Throw<FileNotFoundException>();
+}
+
+/// <summary>
+/// There is deliberately no implicit default for use_ssl / use_start_tls, so the remaining
+/// hazard is that a config which does not ask for encryption looks exactly like one that
+/// does: the send succeeds and logs "sent successfully" while the SMTP password goes over
+/// the wire. These pin the warning that closes that gap.
+/// </summary>
+public class SmtpPlaintextWarningTests : IDisposable
+{
+    private readonly string _folder =
+        Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), $"lm-warn-{Guid.NewGuid():N}")).FullName;
+
+    public void Dispose() => Directory.Delete(_folder, recursive: true);
+
+    private sealed class CapturingLog : ISyncLog
+    {
+        public List<string> Warnings { get; } = new();
+        public int Level => 2;
+        public void Info(string message) { }
+        public void Warn(string message) => Warnings.Add(message);
+        public void Error(string message, Exception? ex = null) { }
+        public void Debug(string message) { }
+    }
+
+    private List<string> WarningsFor(string smtpBlock)
+    {
+        var path = Path.Combine(_folder, $"{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, "mail:\n  enabled: true\n  provider: \"smtp\"\n  smtp:\n"
+                                + "    server: \"relay.example.org\"\n    port: 587\n"
+                                + "    username: \"monitor\"\n    password: \"secret\"\n"
+                                + smtpBlock);
+        var log = new CapturingLog();
+        Program.WarnIfSmtpCredentialsWouldGoOutInClear(AppConfig.LoadFromYaml(path).Mail, log);
+        return log.Warnings;
+    }
+
+    // The three inputs that reach SecureSocketOptions.None with nothing to show for it.
+    [Theory]
+    // (1) the key omitted -- allowed, and it meant STARTTLS before the package migration
+    [InlineData("")]
+    // (2) the undocumented spelling the released main accepted via a YamlMember alias
+    [InlineData("    use_starttls: true\n")]
+    // (3) a typo, swallowed by ignoreUnmatchedProperties, landing on the false default
+    [InlineData("    use_start_tsl: true\n")]
+    public void A_config_that_does_not_ask_for_encryption_is_warned_about(string block)
+        => WarningsFor(block).Should().ContainSingle()
+            .Which.Should().Contain("use_start_tls").And.Contain("in the clear");
+
+    [Theory]
+    [InlineData("    use_start_tls: true\n")]
+    [InlineData("    use_ssl: true\n")]
+    public void An_encrypted_transport_is_not_warned_about(string block)
+        => WarningsFor(block).Should().BeEmpty();
+
+    // No credentials to leak, and an unauthenticated local relay is a legitimate setup.
+    [Fact]
+    public void A_blank_username_is_not_warned_about()
+    {
+        var path = Path.Combine(_folder, "nouser.yml");
+        File.WriteAllText(path, "mail:\n  enabled: true\n  provider: \"smtp\"\n  smtp:\n"
+                                + "    server: \"localhost\"\n    port: 1025\n    username: \"\"\n");
+        var log = new CapturingLog();
+        Program.WarnIfSmtpCredentialsWouldGoOutInClear(AppConfig.LoadFromYaml(path).Mail, log);
+        log.Warnings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void A_non_smtp_provider_is_not_warned_about()
+    {
+        var path = Path.Combine(_folder, "graph.yml");
+        File.WriteAllText(path, "mail:\n  enabled: true\n  provider: \"graph\"\n  smtp:\n"
+                                + "    username: \"monitor\"\n");
+        var log = new CapturingLog();
+        Program.WarnIfSmtpCredentialsWouldGoOutInClear(AppConfig.LoadFromYaml(path).Mail, log);
+        log.Warnings.Should().BeEmpty();
+    }
 }
