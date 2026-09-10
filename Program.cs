@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using SamedisCare.Helper.Logging;
 using SamedisCare.Mail;
@@ -72,11 +71,10 @@ internal class Program
 
     // always keep a local copy of the detail report next to the log
     Directory.CreateDirectory("log");
-    // Invariant, not interpolated with the ambient culture: an interpolated hole formats with
-    // CurrentCulture even with a fixed specifier, which yields log-monitor-report_2569-09-10
-    // on th-TH. The name is the mail attachment name and the local copy, so it should stay ISO.
-    var reportFileName =
-      $"log-monitor-report_{report.GeneratedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.log";
+    // Through LogFormat, which formats invariantly: an interpolated hole formats with
+    // CurrentCulture even with a fixed specifier, which yielded log-monitor-report_2569-09-10
+    // on th-TH. This name is the mail attachment and the local copy, so it should stay ISO.
+    var reportFileName = LogFormat.FileName(report.GeneratedAt, "log-monitor-report_", ".log");
     var localReportPath = Path.Combine("log", reportFileName);
     await File.WriteAllTextAsync(localReportPath, detailText, Encoding.UTF8);
     log.Debug($"Detail report written to {localReportPath}");
