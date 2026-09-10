@@ -6,8 +6,12 @@ Postfach – inklusive einer Detail-Logdatei im Anhang. Gibt es keine Auffällig
 wird eine „Alles OK"-Mail versendet, damit man weiß, dass der Monitor selbst lief.
 
 Alle Samedis-Tools schreiben ihre Logs im identischen Format
-`yyyy-MM-dd HH:mm:ss <LEVEL> <message>` nach `log/Logfile_dd.MM.yyyy.log` (eine
-Datei pro Tag). Der Monitor nutzt genau dieses Format.
+`yyyy-MM-dd HH:mm:ss <LEVEL> <message>` nach `log/Logfile_yyyy-MM-dd.log` (eine
+Datei pro Tag). Der Monitor nutzt genau dieses Format: `LogFormat.FileName` schreibt
+den Namen und `LogFormat.TryParseFileName` liest ihn, und der akzeptiert
+ausschließlich ISO. Findet er kein Datum im Namen, fällt der Scanner auf die
+`LastWriteTime` der Datei zurück und wird damit blind für einen stehengebliebenen
+Lauf – deshalb ist die Schreibweise hier kein Kosmetikthema.
 
 ## Shared libraries
 
@@ -137,6 +141,10 @@ mail:
     service_account_json_path: ""
     impersonated_user: ""
 ```
+Zur Transportverschlüsselung gibt es **keinen impliziten Default**: sind weder `use_ssl`
+noch `use_start_tls` gesetzt, verbindet sich der Mailer unverschlüsselt und schickt
+`username`/`password` im Klartext. Auf Port 587 gehört `use_start_tls: true`, auf Port 465
+`use_ssl: true`. Der Lauf warnt in diesem Fall auch im Log.
 
 ## Einmal täglich ausführen (Scheduling)
 
