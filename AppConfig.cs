@@ -1,5 +1,5 @@
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using SamedisCare.Mail;
+using SamedisCare.Helper.Config;
 
 namespace SamedisCareLogMonitor
 {
@@ -14,19 +14,46 @@ namespace SamedisCareLogMonitor
     public Dictionary<string, string> Programs { get; set; } = new();
 
     public MonitorConfig Monitor { get; set; } = new MonitorConfig();
-    public MailConfig Mail { get; set; } = new MailConfig();
+    public MailSettings Mail { get; set; } = new();
 
+    /// <summary>
+    /// Reads config.yml. Unknown keys are tolerated, as they were before, so a key left over
+    /// from an older version does not fail the run.
+    /// </summary>
     public static AppConfig LoadFromYaml(string filePath)
+      => Normalize(ConfigStore.Load<AppConfig>(filePath, ignoreUnmatchedProperties: true));
+
+    /// <summary>
+    /// Makes an empty section mean "defaults", the same as a missing one.
+    /// </summary>
+    /// <remarks>
+    /// A section header with nothing under it -- the normal intermediate state while setting
+    /// the tool up -- is not the same as an absent one to YamlDotNet: it sets the property, and
+    /// the value it sets is null, overwriting the initialiser above. Measured on YamlDotNet
+    /// 16.3.0: "logging:" alone gives Logging == null, while omitting the key leaves the
+    /// initialiser intact.
+    ///
+    /// Every consumer would otherwise need its own null check. Program.Main is not inside a
+    /// try, so the alternative is a bare NullReferenceException and exit code 134 with nothing
+    /// in the log naming the section at fault -- a poor neighbour to the care taken over YAML
+    /// syntax errors, which report line, column and a hint about Windows paths.
+    ///
+    /// This is not a hidden default: a missing section already means defaults, and the whole
+    /// point here is that the two spellings stop behaving differently.
+    /// </remarks>
+    private static AppConfig Normalize(AppConfig config)
     {
-      using var input = File.OpenText(filePath);
-      var deserializerBuilder = new DeserializerBuilder()
-        .WithNamingConvention(UnderscoredNamingConvention.Instance)
-        .IgnoreUnmatchedProperties();
-      var deserializer = deserializerBuilder.Build();
-      var result = deserializer.Deserialize<AppConfig>(input) ?? new AppConfig();
-      if (result.Mail?.Smtp?.UseStartTlsLegacy is bool legacyValue)
-        result.Mail.Smtp.UseStartTls = legacyValue;
-      return result;
+      config.Logging ??= new LoggingConfig();
+      config.Monitor ??= new MonitorConfig();
+      config.Programs ??= new();
+      config.Mail ??= new();
+
+      // The transports come from SamedisCare.Mail and carry the same kind of initialiser.
+      config.Mail.Smtp ??= new();
+      config.Mail.Graph ??= new();
+      config.Mail.Gmail ??= new();
+
+      return config;
     }
   }
 
@@ -57,42 +84,15 @@ namespace SamedisCareLogMonitor
     public int MaxEntriesPerProgram { get; set; } = 500;
   }
 
-  public class MailConfig
-  {
-    public bool Enabled { get; set; } = false;
-    public string? Provider { get; set; } = "smtp";
-    public string? From { get; set; }
-    public List<string> Recipients { get; set; } = new();
-    public string? Subject { get; set; }
-    public SmtpConfig Smtp { get; set; } = new SmtpConfig();
-    public GraphMailConfig Graph { get; set; } = new GraphMailConfig();
-    public GmailConfig Gmail { get; set; } = new GmailConfig();
-  }
-
-  public class SmtpConfig
-  {
-    public string? Server { get; set; }
-    public int Port { get; set; } = 587;
-    public string? Username { get; set; }
-    public string? Password { get; set; }
-    public bool UseSsl { get; set; } = false;
-    public bool UseStartTls { get; set; } = true;
-    public bool IgnoreCertificateErrors { get; set; } = false;
-    [YamlMember(Alias = "use_starttls")]
-    public bool? UseStartTlsLegacy { get; set; }
-  }
-
-  public class GraphMailConfig
-  {
-    public string? TenantId { get; set; }
-    public string? ClientId { get; set; }
-    public string? ClientSecret { get; set; }
-    public string? SenderUserPrincipalName { get; set; }
-  }
-
-  public class GmailConfig
-  {
-    public string? ServiceAccountJsonPath { get; set; }
-    public string? ImpersonatedUser { get; set; }
-  }
+  // MailConfig, SmtpConfig, GraphMailConfig and GmailConfig used to live here -- property for
+  // property the same ones as in samedis-care-requests-to-mail. They now come from
+  // SamedisCare.Mail, where the transports read them. An existing config.yml keeps working
+  // for every key this tool has ever documented -- use_ssl / use_start_tls map onto the
+  // package properties unchanged.
+  //
+  // The one thing that does not survive: the undocumented use_starttls spelling, which the
+  // released main accepted through a [YamlMember] alias. Under UnderscoredNamingConvention
+  // the package property maps to use_start_tls_legacy, and ignoreUnmatchedProperties eats the
+  // old name, so such a key now loads as "unset". It has to be renamed to use_start_tls.
+  // WarnIfSmtpCredentialsWouldGoOutInClear in Program.cs is what makes that audible.
 }

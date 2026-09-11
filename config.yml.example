@@ -49,6 +49,9 @@ mail:
     username: ""
     password: ""
     use_ssl: false
+    # Kein impliziter Default: fehlt use_ssl und use_start_tls, verbindet sich der
+    # Mailer unverschlüsselt (SecureSocketOptions.None) und schickt username/password
+    # im Klartext. Auf Port 587 gehört use_start_tls: true, auf 465 use_ssl: true.
     use_start_tls: true
     ignore_certificate_errors: false
   graph:

@@ -1,46 +1,26 @@
+using SamedisCare.Helper.Logging;
+
 namespace SamedisCareLogMonitor
 {
-  public class Helper
+  /// <summary>
+  /// What is left of this tool's own helpers.
+  /// <para>
+  /// Message() used to be here: the fifth copy of a logger writing
+  /// <c>yyyy-MM-dd HH:mm:ss LEVEL message</c> by hand. It is now
+  /// <see cref="FileSyncLog"/>, which matters more here than in the other tools -- this one
+  /// reads that very format back out of the other tools' logs, and having written its own
+  /// with a second implementation was an invitation for the two to drift.
+  /// </para>
+  /// </summary>
+  internal static class Abort
   {
     /// <summary>
-    /// LogLevel 0: turned off
-    /// LogLevel 1: normal output
-    /// LogLevel 2: debug output
+    /// Reports and ends the run. Terminating is the host's decision, not the library's,
+    /// which is why this stays in the tool.
     /// </summary>
-    public int LogLevel = 1;
-    /// <summary>
-    /// LogMode 0: no output
-    /// LogMode 1: Console Output
-    /// LogMode 2: LogFile
-    /// LogMode 3: Console and Logfile
-    /// </summary>
-    public int LogMode = 3;
-    public string LogFile = "debug.log";
-
-    public void Message(string message, int logLevel = 1, string logType = "INFO")
+    internal static void With(ISyncLog log, string message)
     {
-      if (logLevel > LogLevel) return;
-      const string format = "yyyy-MM-dd HH:mm:ss";
-
-      if (LogMode == 1 || LogMode == 3)
-      {
-        Console.WriteLine(new string('*', 80));
-        Console.WriteLine(DateTime.Now.ToString(format) + " " + message);
-      }
-
-      if (LogMode < 2) return;
-      Directory.CreateDirectory("log");
-      var logContent = string.Empty;
-      logContent += DateTime.Now.ToString(format) + " ";
-      logContent += logType + " ";
-      if (!string.IsNullOrEmpty(message))
-        logContent += message;
-      File.AppendAllText(Path.Combine("log", LogFile), logContent + "\n");
-    }
-
-    internal void MessageAndExit(string errorMessage)
-    {
-      Message(errorMessage, 1, "ERROR");
+      log.Error(message);
       Environment.Exit(1);
     }
   }
