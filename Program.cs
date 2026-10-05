@@ -1,4 +1,5 @@
 using System.Text;
+using SamedisCare.Helper.Config;
 using SamedisCare.Helper.Logging;
 using SamedisCare.Mail;
 
@@ -25,7 +26,9 @@ internal class Program
     AppConfig config;
     try
     {
-      config = AppConfig.LoadFromYaml(ymlFilePath);
+      // Unknown keys are tolerated, as they were before, so a key left over from an older
+      // version does not fail the run. Empty sections come back as defaults.
+      config = ConfigStore.Load<AppConfig>(ymlFilePath, ignoreUnmatchedProperties: true);
     }
     catch (YamlDotNet.Core.YamlException ex)
     {
@@ -124,7 +127,7 @@ internal class Program
   /// </remarks>
   internal static void WarnIfSmtpCredentialsWouldGoOutInClear(MailSettings mail, ISyncLog log)
   {
-    // AppConfig.Normalize guarantees a non-null Smtp, but this must not be the thing that
+    // ConfigStore.Load fills an empty smtp section, but this must not be the thing that
     // takes the run down if that ever stops being true: Main has no try around it, and a
     // half-filled mail block is exactly the state this warning exists to talk about. The
     // provider check stays first so a graph/gmail setup never looks at Smtp at all.
