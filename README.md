@@ -160,3 +160,20 @@ Das Programm läuft einmal durch und beendet sich – die Taktung erfolgt extern
 
 > Hinweis: Der Monitor sollte **nach** den überwachten Tools laufen, damit die
 > jeweils aktuelle Tageslogdatei bereits existiert.
+
+## Releases
+
+Pushing a version tag builds the single-file `win-x64` EXE, runs the tests and publishes
+a GitHub release with the EXE and a zip (EXE + `config.yml.example` + `README.md`):
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Every pull request into `main` or `develop` also produces the EXE as a downloadable
+artifact of its CI run.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

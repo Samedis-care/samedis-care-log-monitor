@@ -1,4 +1,5 @@
 using FluentAssertions;
+using SamedisCare.Helper.Config;
 using SamedisCare.Helper.Logging;
 using SamedisCareLogMonitor;
 using Xunit;
@@ -22,7 +23,7 @@ public class AppConfigTests : IDisposable
     {
         var path = Path.Combine(_folder, "config.yml");
         File.WriteAllText(path, yaml);
-        return AppConfig.LoadFromYaml(path);
+        return ConfigStore.Load<AppConfig>(path, ignoreUnmatchedProperties: true);
     }
 
     private const string SmtpConfig = """
@@ -64,7 +65,7 @@ public class AppConfigTests : IDisposable
 
     [Fact]
     public void A_missing_file_is_reported_as_such()
-        => ((Action)(() => AppConfig.LoadFromYaml(Path.Combine(_folder, "not-there.yml"))))
+        => ((Action)(() => ConfigStore.Load<AppConfig>(Path.Combine(_folder, "not-there.yml"), ignoreUnmatchedProperties: true)))
             .Should().Throw<FileNotFoundException>();
 }
 
@@ -99,7 +100,7 @@ public class SmtpPlaintextWarningTests : IDisposable
                                 + "    username: \"monitor\"\n    password: \"secret\"\n"
                                 + smtpBlock);
         var log = new CapturingLog();
-        Program.WarnIfSmtpCredentialsWouldGoOutInClear(AppConfig.LoadFromYaml(path).Mail, log);
+        Program.WarnIfSmtpCredentialsWouldGoOutInClear(ConfigStore.Load<AppConfig>(path, ignoreUnmatchedProperties: true).Mail, log);
         return log.Warnings;
     }
 
@@ -129,7 +130,7 @@ public class SmtpPlaintextWarningTests : IDisposable
         File.WriteAllText(path, "mail:\n  enabled: true\n  provider: \"smtp\"\n  smtp:\n"
                                 + "    server: \"localhost\"\n    port: 1025\n    username: \"\"\n");
         var log = new CapturingLog();
-        Program.WarnIfSmtpCredentialsWouldGoOutInClear(AppConfig.LoadFromYaml(path).Mail, log);
+        Program.WarnIfSmtpCredentialsWouldGoOutInClear(ConfigStore.Load<AppConfig>(path, ignoreUnmatchedProperties: true).Mail, log);
         log.Warnings.Should().BeEmpty();
     }
 
@@ -140,7 +141,7 @@ public class SmtpPlaintextWarningTests : IDisposable
         File.WriteAllText(path, "mail:\n  enabled: true\n  provider: \"graph\"\n  smtp:\n"
                                 + "    username: \"monitor\"\n");
         var log = new CapturingLog();
-        Program.WarnIfSmtpCredentialsWouldGoOutInClear(AppConfig.LoadFromYaml(path).Mail, log);
+        Program.WarnIfSmtpCredentialsWouldGoOutInClear(ConfigStore.Load<AppConfig>(path, ignoreUnmatchedProperties: true).Mail, log);
         log.Warnings.Should().BeEmpty();
     }
 }
@@ -151,7 +152,7 @@ public class SmtpPlaintextWarningTests : IDisposable
 /// property initialiser with null. Measured on YamlDotNet 16.3.0 -- "logging:" alone gives
 /// Logging == null, while omitting the key entirely leaves the initialiser intact. Every
 /// consumer then has to null-check, or the run dies on a bare NullReferenceException with no
-/// line saying which section is at fault. LoadFromYaml normalises instead, so an empty
+/// line saying which section is at fault. ConfigStore.Load fills them instead, so an empty
 /// section means "defaults" exactly like a missing one.
 /// </summary>
 public class EmptySectionTests : IDisposable
@@ -165,7 +166,7 @@ public class EmptySectionTests : IDisposable
     {
         var path = Path.Combine(_folder, $"{Guid.NewGuid():N}.yml");
         File.WriteAllText(path, yaml);
-        return AppConfig.LoadFromYaml(path);
+        return ConfigStore.Load<AppConfig>(path, ignoreUnmatchedProperties: true);
     }
 
     [Fact]
