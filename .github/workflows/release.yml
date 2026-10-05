@@ -1,36 +1,74 @@
 name: Release
+
+# Creates a GitHub release with the finished EXE as soon as a version tag is pushed
+# (e.g. v1.0.0), so users find the executable permanently under "Releases" — not only
+# as a short-lived Actions artifact.
+#
+#   git tag v1.0.0
+#   git push origin v1.0.0
+
 on:
   push:
     tags: [ 'v*' ]
-permissions:
-  contents: write
+
 jobs:
   release:
+    name: Build, Test & publish Release EXE
     runs-on: ubuntu-latest
+
+    # Fork protection: a tag in a fork must never publish a release from here.
+    if: github.repository == 'Samedis-care/samedis-care-log-monitor'
+
+    permissions:
+      contents: write   # needed to create the release
+
     env:
-      PROJECT: SamedisCareLogMonitor.csproj
       APP_NAME: SamedisCareLogMonitor
-      EXE_NAME: SamedisCareLogMonitor
       RID: win-x64
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
-      - name: Publish (single-file, self-contained)
+
+      # v1.0.0 -> 1.0.0, stamped into the EXE's file and product version.
+      - name: Derive version from tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore SamedisCareLogMonitor.sln
+
+      - name: Build
+        run: dotnet build SamedisCareLogMonitor.sln -c Release --no-restore -p:Version=${{ steps.version.outputs.value }}
+
+      # A release whose tests are red must not ship.
+      - name: Test
+        run: dotnet test SamedisCareLogMonitor.sln -c Release --no-build --verbosity normal
+
+      - name: Publish (single-file, self-contained, win-x64)
         run: |
-          dotnet publish "$PROJECT" -c Release -r "$RID" \
+          dotnet publish "${APP_NAME}.csproj" -c Release -r "$RID" \
             --self-contained true \
-            /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:Version=${{ steps.version.outputs.value }} \
             -o publish
-      - name: Zip
-        run: cd publish && zip -r "../${APP_NAME}-${GITHUB_REF_NAME}-${RID}.zip" . && cd ..
+
+      - name: Assemble deploy package + zip
+        run: |
+          mkdir deploy
+          cp "publish/${APP_NAME}.exe" config.yml.example README.md deploy/
+          (cd deploy && zip -r "../${APP_NAME}-${GITHUB_REF_NAME}-${RID}.zip" .)
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            --title "${APP_NAME} ${GITHUB_REF_NAME}" \
+            --title "SamedisCare Log Monitor ${GITHUB_REF_NAME}" \
             --generate-notes \
-            "${APP_NAME}-${GITHUB_REF_NAME}-${RID}.zip" \
-            "publish/${EXE_NAME}.exe"
+            "${APP_NAME}-${GITHUB_REF_NAME}-${RID}.zip#SamedisCare Log Monitor ${GITHUB_REF_NAME} (package, .zip)" \
+            "deploy/${APP_NAME}.exe#${APP_NAME}.exe"
