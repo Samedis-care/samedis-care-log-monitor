@@ -1,31 +1,55 @@
-# This workflow will build the .NET project on pushes and pull requests.
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
 name: CI
 
+# Builds and tests on every PR into main or develop and on pushes to main/develop,
+# then publishes the single-file win-x64 EXE and attaches it to the Actions run as a
+# downloadable artifact — so anyone can pull the EXE straight from the PR.
+
 on:
-  push:
-    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
 
 permissions:
   contents: read
 
 jobs:
   build:
-
+    name: Build, Test & Package (win-x64)
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore SamedisCareLogMonitor.sln
+
+      - name: Build
+        run: dotnet build SamedisCareLogMonitor.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test SamedisCareLogMonitor.sln -c Release --no-build --verbosity normal
+
+      # Cross-compiles to Windows from the Linux runner; self-contained, so the EXE runs
+      # without an installed .NET runtime.
+      - name: Publish (single-file, self-contained, win-x64)
+        run: |
+          dotnet publish SamedisCareLogMonitor.csproj -c Release -r win-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o deploy
+          cp config.yml.example README.md deploy/
+
+      - name: Upload EXE + deploy package
+        uses: actions/upload-artifact@v7
+        with:
+          name: SamedisCareLogMonitor-win-x64
+          path: |
+            deploy/SamedisCareLogMonitor.exe
+            deploy/config.yml.example
+            deploy/README.md
+          if-no-files-found: error
