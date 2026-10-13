@@ -56,6 +56,14 @@ public class AppConfigTests : IDisposable
         smtp.Port.Should().Be(587);
     }
 
+    // Before SamedisCare.Mail the tool's own SmtpConfig defaulted the port to 587; the package
+    // did not until 1.4.0, so a config without port: loaded as 0 and every report mail failed
+    // with "SMTP server/port not configured" (samedis-care-issues#2875).
+    [Fact]
+    public void A_smtp_block_without_a_port_means_587()
+        => Load("mail:\n  enabled: true\n  smtp:\n    server: \"relay.example.org\"\n    use_start_tls: true\n")
+            .Mail.Smtp.Port.Should().Be(587);
+
     // The loader tolerated unknown keys before, and an operator's config.yml carries keys from
     // older versions. Turning that off would fail the run on a stale key instead of ignoring it.
     [Fact]
