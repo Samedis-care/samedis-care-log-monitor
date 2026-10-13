@@ -54,4 +54,7 @@ namespace SamedisCareLogMonitor
   // the package property maps to use_start_tls_legacy, and ignoreUnmatchedProperties eats the
   // old name, so such a key now loads as "unset". It has to be renamed to use_start_tls.
   // WarnIfSmtpCredentialsWouldGoOutInClear in Program.cs is what makes that audible.
+  //
+  // A missing smtp port means 587, as it did here before. The package only defaults it that
+  // way from 1.4.0 on; on 1.1.0 it loaded as 0 and no report mail went out (#2875).
 }
